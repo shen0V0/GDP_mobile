@@ -31,6 +31,7 @@
 *Cost:50
 </recipe>
  */(function() {
+    window.Scene_Craft = Scene_Craft;
     var parameters = PluginManager.parameters('CraftingSystem');
     var craftMenuName = String(parameters['Craft Menu Name'] || 'Craft');
 
@@ -61,7 +62,7 @@
     };
     
     Scene_Craft.prototype.createCraftWindow = function() {
-        var craftWindowHeight = Graphics.boxHeight - this._helpWindow.height - 340;  // Reserve space for details window
+        var craftWindowHeight = Graphics.boxHeight - this._helpWindow.height - 350;  // Reserve space for details window
         this._craftWindow = new Window_CraftList(0, this._helpWindow.height, Graphics.boxWidth, craftWindowHeight);
         this._craftWindow.setHandler('ok', this.onCraftOk.bind(this));
         this._craftWindow.setHandler('cancel', this.onCraftCancel.bind(this));
@@ -72,7 +73,7 @@
     };
     
     Scene_Craft.prototype.createDetailsWindow = function() {
-        this._detailsWindow = new Window_CraftDetails(0, Graphics.boxHeight - 340, Graphics.boxWidth, 340);
+        this._detailsWindow = new Window_CraftDetails(0, Graphics.boxHeight - 350, Graphics.boxWidth, 340);
         this.addWindow(this._detailsWindow);
     };
     
@@ -121,8 +122,11 @@
         for (var i = 0; i < recipe.materials.length; i++) {
             var material = recipe.materials[i];
             var item = this.getItem(material.type, material.id);
-            if (!$gameParty.numItems(item) >= material.quantity) {
-                return false;
+            console.log(`Checking material: ${material.type} ID: ${material.id} Quantity: ${material.quantity}`);
+            console.log(`Available: ${$gameParty.numItems(item)}`);
+            // Check if the player has enough of the material
+            if ($gameParty.numItems(item) < material.quantity) {
+                return false; // Not enough material
             }
         }
     
@@ -138,6 +142,7 @@
         }
         return true;
     };
+    
     
     
     Scene_Craft.prototype.doCraft = function(recipe) {
@@ -436,36 +441,94 @@ Window_CraftList.prototype.itemRect = function(index) {
             // Draw description
             this.drawText("Description:", 0, y, this.contents.width);
             y += lineHeight;
-    
             this.drawText(this._recipe.description, 0, y, this.contents.width);
             y += lineHeight + 1;
+    // Draw weapon or armor parameters if applicable
+    var resultItem = this.getItem(this._recipe.result.type, this._recipe.result.id);
+    var paramWidth = this.contents.width / 6;
+    var x =0;
+    
+    if (resultItem && (resultItem.atk !== undefined || resultItem.def !== undefined)) {
+   
+            this.drawText(`Attack: ${resultItem.atk}`, x, y, this.contents.width);
+            x += paramWidth;
+            this.drawText(`  Defense: ${resultItem.def}`, x, y, this.contents.width);
+            x += paramWidth;
+            this.drawText(`    Agility: ${resultItem.agi}`, x, y, this.contents.width);
+            x += paramWidth;
+            
+            y += lineHeight;
+            x=0;
+            this.drawText(`M.Attack: ${resultItem.mat}`, x, y, this.contents.width);
+            x += paramWidth;
+            this.drawText(`  M.Defesnse: ${resultItem.mdf}`, x, y, this.contents.width);
+            x += paramWidth;
+
+
+            this.drawText(`    Luck: ${resultItem.luk}`, x, y, this.contents.width);
+            x += paramWidth;
+
+        y += lineHeight;
+
+        // Add more parameters as needed
+    }
+            // Draw cost if applicable
             if (this._recipe.cost > 0) {
                 this.drawText(`Cost: ${this._recipe.cost} Fairy Mass`, 0, y, this.contents.width);
                 y += lineHeight;
             }
+           
             // Draw materials
             this.drawText("Materials:", 0, y, this.contents.width);
             y += lineHeight;
             this._recipe.materials.forEach(function(material, i) {
                 var materialItem = this.getItemName(material.type, material.id);
                 var iconIndex = this.getItemIconIndex(material.type, material.id);
-                
-                // Draw icon for the material
                 this.drawIcon(iconIndex, 0, y);
-                
-                // Draw material name and quantity
                 this.drawText(`  Material ${i + 1}: ${materialItem} x${material.quantity}`, 24, y, this.contents.width - 24);
                 y += lineHeight;
             }, this);
-           
-            // Draw requirement
-            if (this._recipe.requirement) {
-                var reqItemName = this.getItemName(this._recipe.requirement.type, this._recipe.requirement.id);
-                this.drawText(`Required Item: ${reqItemName}`, 0, y, this.contents.width);
-                y += lineHeight;
-            }
+            
+            
+            
         }
     };
+    Window_CraftDetails.prototype.getItem = function(type, id) {
+        let item = null;
+    
+        if (type === 'Item') {
+            item = $dataItems[id];
+            // Return only basic information for regular items
+            return {
+                name: item.name,
+                description: item.description,
+                iconIndex: item.iconIndex
+            };
+        } else if (type === 'Weapon') {
+            item = $dataWeapons[id];
+        } else if (type === 'Armor') {
+            item = $dataArmors[id];
+        }
+    
+        // Ensure item exists for weapons and armors and return their parameters
+        if (item) {
+            return {
+                name: item.name,
+                description: item.description,
+                iconIndex: item.iconIndex,
+                atk: item.params[2] || 0, // Attack
+                def: item.params[3] || 0, // Defense
+                mat: item.params[4] || 0, // Magic Attack
+                mdf: item.params[5] || 0, // Magic Defense
+                agi: item.params[6] || 0, // Agility
+                luk: item.params[7] || 0  // Luck
+                // Add more parameters as needed based on RPG Maker MV's item structure
+            };
+        }
+    
+        return null;
+    };
+    
     
 
 
